@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS - Virtual Assistant</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;300;400;500;700&display=swap");
+
+        :root {
+            --neon-blue: #00f2ff;
+            --laser-red: #ff0000;
+            --neon-green: #00ff88;
+            --bg-dark: #0a0a0f;
+            --panel-bg: rgba(0,10,20,0.85);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Roboto Mono", monospace; }
+
+        body {
+            background: var(--bg-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+      
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,242,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,242,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+        }
+
+        .main {
+            width: 100%;
+            max-width: 780px;
+            padding: 30px 20px;
+            background: var(--panel-bg);
+            border: 1px solid rgba(0,242,255,0.2);
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(0,242,255,0.08), inset 0 0 60px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+            text-align: center;
+        }
+
+        .main .image-container .image img {
+            width: 100%; max-width: 200px;
+            border: 3px solid var(--neon-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(0,242,255,0.4);
+        }
+
+        .main .image-container h1 {
+            color: var(--neon-blue);
+            font-size: 36px;
+            margin-top: 16px;
+            letter-spacing: 12px;
+            text-shadow: 0 0 20px rgba(0,242,255,0.6);
+        }
+
+        .main .image-container p {
+            color: rgba(174,208,208,0.8);
+            font-size: 14px;
+            margin: 12px 0;
+            letter-spacing: 2px;
+        }
+
+        .main .input {
+            display: flex; justify-content: center; align-items: center;
+            height: 54px; background: rgba(0,188,212,0.15);
+            border: 1px solid rgba(0,188,212,0.4);
+            border-radius: 30px; margin-top: 20px; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .main .input:hover { background: rgba(0,188,212,0.25); }
+
+        .main .input .talk {
+            background: rgba(0,0,0,0.4); width: 40px; height: 40px;
+            border-radius: 50%; margin: 0 12px; border: 1px solid rgba(0,188,212,0.5);
+            cursor: pointer; transition: all 0.3s;
+        }
+        .main .input .talk:hover { background: rgba(0,188,212,0.3); }
+        .main .input .talk i { font-size: 16px; color: #fff; }
+        .main .input .content { color: #fff; font-size: 16px; letter-spacing: 1px; }
+
+        #holo-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 50;
+            background: transparent;
+        }
+        #holo-overlay.active { display: block; }
+
+     
+        #holo-overlay::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg, transparent, transparent 3px,
+                rgba(0,242,255,0.025) 3px, rgba(0,242,255,0.025) 4px
+            );
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        #input_video {
+            position: absolute; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1);
+            z-index: 1;
+        }
+        #output_canvas {
+            position: absolute; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 5;
+            transform: scaleX(-1);
+        }
+
+        #holo-mic-status {
+            position: fixed; top: 20px; right: 24px;
+            z-index: 60;
+            display: flex; align-items: center; gap: 8px;
+            color: var(--neon-blue); font-size: 11px; letter-spacing: 2px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(0,242,255,0.2);
+            padding: 6px 14px; border-radius: 20px;
+        }
+        #holo-mic-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #444; transition: background 0.2s;
+        }
+        #holo-mic-dot.active   { background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green); animation: pulse 1s infinite; }
+        #holo-mic-dot.listening { background: var(--neon-blue);  box-shadow: 0 0 8px var(--neon-blue);  animation: pulse 0.5s infinite; }
+
+        #hand-status {
+            position: fixed; top: 20px; left: 24px;
+            z-index: 60;
+            color: var(--neon-green); font-size: 11px; letter-spacing: 2px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(0,255,136,0.2);
+            padding: 6px 14px; border-radius: 20px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        #hand-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #444;
+        }
+        #hand-dot.detected { background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green); }
+
+        #holo-transcript {
+            position: fixed; bottom: 60px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 60; color: #fff; font-size: 13px; letter-spacing: 1px;
+            background: rgba(0,242,255,0.1); border: 1px solid rgba(0,242,255,0.3);
+            padding: 6px 20px; border-radius: 20px;
+            max-width: 80vw; text-align: center;
+            opacity: 0; transition: opacity 0.3s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #holo-transcript.visible { opacity: 1; }
+
+        #holo-hint {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 60; color: rgba(0,242,255,0.5); font-size: 10px;
+            letter-spacing: 2px; pointer-events: none; white-space: nowrap;
+        }
+
+        #gesture-legend {
+            position: fixed; bottom: 80px; left: 20px;
+            z-index: 60;
+            color: rgba(0,242,255,0.7); font-size: 10px; letter-spacing: 1px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(0,242,255,0.15);
+            padding: 10px 14px; border-radius: 8px;
+            line-height: 1.9;
+        }
+        #gesture-legend span { color: var(--neon-green); }
+
+        #loading-screen {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.9);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+            gap: 16px;
+        }
+        #loading-screen p { color: var(--neon-blue); font-size: 12px; letter-spacing: 3px; }
+        .loader {
+            width: 44px; height: 44px;
+            border: 2px solid #111; border-top: 2px solid var(--neon-blue);
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin  { 100%{ transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+        #holo-mic-btn {
+            display: none;
+            position: fixed; bottom: 100px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 70;
+            background: rgba(0,242,255,0.15);
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            border-radius: 50%; width: 56px; height: 56px;
+            font-size: 20px; cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+        }
+        #holo-mic-btn:hover { background: rgba(0,242,255,0.3); box-shadow: 0 0 20px rgba(0,242,255,0.4); }
+
+        #ipcam-badge {
+            display: none;
+            position: fixed; top: 20px; left: 24px;
+            z-index: 80;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid var(--neon-green);
+            border-radius: 8px; padding: 6px 14px;
+            color: var(--neon-green); font-size: 11px; letter-spacing: 2px;
+            gap: 8px; align-items: center;
+        }
+        #ipcam-badge.visible { display: flex; }
+        #ipcam-dot { width:8px;height:8px;border-radius:50%;background:var(--neon-green);box-shadow:0 0 6px var(--neon-green);animation:pulse 1.2s infinite; }
+        #ipcam-dot.error { background:#ff4444;box-shadow:0 0 6px #ff4444;animation:none; }
+
+        #ipcam-panel {
+            display: none;
+            position: fixed; bottom: 110px; right: 24px;
+            z-index: 80; width: 280px;
+            border: 2px solid var(--neon-green); border-radius: 10px;
+            overflow: hidden; box-shadow: 0 0 20px rgba(0,255,136,0.3); background: #000;
+        }
+        #ipcam-panel.visible { display: block; }
+        #ipcam-panel-header {
+            background: rgba(0,255,136,0.12); color: var(--neon-green);
+            font-size: 10px; letter-spacing: 2px; padding: 5px 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #ipcam-panel-header button { background:none;border:none;color:#ff4444;cursor:pointer;font-size:13px; }
+        #ipcam-canvas { width:100%;display:block;height:158px;object-fit:cover;background:#000; }
+        #ipcam-fps { background:rgba(0,0,0,0.8);color:var(--neon-green);font-size:10px;padding:3px 8px;letter-spacing:1px; }
+    </style>
+</head>
+<body>
+
+  
+    <section class="main">
+        <div class="image-container">
+            <div class="image">
+                <img src="giphy.gif" alt="JARVIS" onerror="this.style.display='none'">
+            </div>
+            <h1>J A R V I S</h1>
+            <p>VIRTUAL ASSISTANT — READY</p>
+        </div>
+        <div class="input">
+            <button class="talk"><i class="fas fa-microphone-alt"></i></button>
+            <h1 class="content">Click here to speak</h1>
+        </div>
+    </section>
+
+    <div id="ipcam-badge"><div id="ipcam-dot"></div><span id="ipcam-label">IP CAM LIVE</span></div>
+    <div id="ipcam-panel">
+        <div id="ipcam-panel-header">
+            <span>📡 IP CAMERA FEED</span>
+            <button onclick="closeIPCam()"><i class="fas fa-times"></i></button>
+        </div>
+        <canvas id="ipcam-canvas"></canvas>
+        <div id="ipcam-fps">FPS: --</div>
+    </div>
+
+    <div id="holo-overlay">
+        <div id="loading-screen" style="display:none;">
+            <div class="loader"></div>
+            <p>INITIALIZING HAND TRACKING...</p>
+        </div>
+
+        <video id="input_video" playsinline></video>
+        <canvas id="output_canvas"></canvas>
+
+        <div id="holo-mic-status">
+            <div id="holo-mic-dot"></div>
+            <span id="holo-mic-label">MIC READY</span>
+        </div>
+
+        <div id="hand-status">
+            <div id="hand-dot"></div>
+            <span id="hand-label">NO HAND</span>
+        </div>
+
+        <div id="gesture-legend">
+            ☝️ <span>INDEX ONLY</span> → DRAW<br>
+            🤏 <span>PINCH</span> → MOVE DRAWING<br>
+            ✊ <span>FIST</span> → STOP DRAWING
+        </div>
+
+        <div id="holo-transcript"></div>
+        <div id="holo-hint">SAY "EXIT HOLOGRAM" TO CLOSE &nbsp;|&nbsp; TAP MIC TO SPEAK</div>
+    </div>
+
+    <button id="holo-mic-btn"><i class="fas fa-microphone-alt"></i></button>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+
+    <script>
+    const IPCAM_BASE    = 'http://192.168.0.102:8080';
+    const OPENAI_API_KEY = ''; // <-- paste your key
+
+    let isSpeaking = false;
+
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1; u.volume = 1; u.pitch = 0.8;
+        const voices = window.speechSynthesis.getVoices();
+        const male = voices.find(v => /male|david|mark|james|daniel|guy|alex|fred|richard/i.test(v.name));
+        if (male) u.voice = male;
+        isSpeaking = true;
+        u.onend  = () => { isSpeaking = false; onSpeakEnd(); };
+        u.onerror = () => { isSpeaking = false; onSpeakEnd(); };
+        window.speechSynthesis.speak(u);
+    }
+
+    function onSpeakEnd() {
+        if (holoActive) scheduleHoloMic();
+        else scheduleMainMic();
+    }
+    async function askGPT(prompt) {
+        try {
+            const res = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: "You are JARVIS, a helpful intelligent voice assistant. Give short spoken answers (2-3 sentences max)." },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.8, max_tokens: 300
+                })
+            });
+            const data = await res.json();
+            if (data.choices) speak(data.choices[0].message.content);
+            else speak("Sorry Sir, API error.");
+        } catch(e) {
+            speak("Sorry Sir, could not connect.");
+            console.error(e);
+        }
+    }
+
+    const sites = [
+        ["google","https://www.google.com"],["youtube","https://www.youtube.com"],
+        ["facebook","https://www.facebook.com"],["amazon","https://www.amazon.com"],
+        ["wikipedia","https://www.wikipedia.org"],["twitter","https://www.twitter.com"],
+        ["instagram","https://www.instagram.com"],["reddit","https://www.reddit.com"],
+        ["whatsapp","https://www.whatsapp.com"],["netflix","https://www.netflix.com"],
+        ["linkedin","https://www.linkedin.com"],["github","https://www.github.com"],
+        ["chatgpt","https://chat.openai.com"],["discord","https://www.discord.com"],
+        ["spotify","https://www.spotify.com"],["notion","https://www.notion.so"],
+        ["tradingview","https://www.tradingview.com"],["flipkart","https://www.flipkart.com"],
+        ["leetcode","https://www.leetcode.com"]
+    ];
+
+    function takeCommand(message) {
+        const m = message.toLowerCase().trim();
+
+        if (m.includes('exit holo') || m.includes('close holo') || m.includes('exit hologram') || m.includes('stop hologram')) {
+            speak("Closing holographic mode, Sir.");
+            setTimeout(() => closeHolo(), 800);
+            return;
+        }
+        if (m.includes('hologram') || m.includes('holo mode') || m.includes('open holo')) {
+            speak("Opening holographic mode, Sir.");
+            openHolo(); return;
+        }
+        if (m.includes('open webcam') || m.includes('show camera') || m.includes('ip camera') || m.includes('ip cam') || m.includes('camera feed')) {
+            openIPCam(); return;
+        }
+        if (m.includes('close webcam') || m.includes('close camera') || m.includes('stop camera') || m.includes('hide camera')) {
+            closeIPCam(); speak("Closing camera feed, Sir."); return;
+        }
+        if (m.includes('hey') || m.includes('hello') || m.includes('hi jarvis')) {
+            speak("Hello Sir, How May I Help You?"); return;
+        }
+        if (m.includes('time')) {
+            speak(new Date().toLocaleString(undefined, {hour:"numeric", minute:"numeric"})); return;
+        }
+        if (m.includes('date')) {
+            speak(new Date().toLocaleString(undefined, {weekday:"long", month:"long", day:"numeric"})); return;
+        }
+        if (m.includes('calculator')) {
+            window.open('Calculator:///'); speak("Opening Calculator"); return;
+        }
+        if (m.startsWith('open ')) {
+            const siteName = m.replace('open ', '').trim();
+            const match = sites.find(([name]) => siteName.includes(name));
+            if (match) { window.open(match[1], "_blank"); speak("Opening " + match[0]); return; }
+        }
+        askGPT(message);
+    }
+
+  
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
+
+    const btn     = document.querySelector('.talk');
+    const content = document.querySelector('.content');
+    let mainListening = false, mainScheduled = false;
+
+    recognition.onstart  = () => { mainListening = true; content.textContent = "Listening..."; btn.querySelector('i').style.color = '#00ff88'; };
+    recognition.onresult = (e) => { const t = e.results[0][0].transcript; content.textContent = t; mainListening = false; takeCommand(t); };
+    recognition.onerror  = (e) => { mainListening = false; btn.querySelector('i').style.color = '#fff'; if (!holoActive && e.error !== 'not-allowed') scheduleMainMic(1500); };
+    recognition.onend    = () => { mainListening = false; btn.querySelector('i').style.color = '#fff'; if (!holoActive && !isSpeaking) scheduleMainMic(); };
+
+    function scheduleMainMic(delay = 800) {
+        if (holoActive || mainListening || mainScheduled || isSpeaking) return;
+        mainScheduled = true;
+        setTimeout(() => { mainScheduled = false; if (!holoActive && !mainListening && !isSpeaking) { try { recognition.start(); } catch(e){} } }, delay);
+    }
+
+    btn.addEventListener('click', () => {
+        if (holoActive) return;
+        if (mainListening) { try { recognition.abort(); } catch(e){} content.textContent = "Click here to speak"; return; }
+        try { recognition.start(); } catch(e) {}
+    });
+
+    
+    const holoRecognition = new SpeechRecognition();
+    holoRecognition.continuous = false; holoRecognition.interimResults = false; holoRecognition.lang = 'en-US';
+
+    const holoMicBtn     = document.getElementById('holo-mic-btn');
+    const holoMicDot     = document.getElementById('holo-mic-dot');
+    const holoMicLabel   = document.getElementById('holo-mic-label');
+    const holoTranscript = document.getElementById('holo-transcript');
+
+    let holoListening = false, holoActive = false, holoAutoRestart = false, holoScheduled = false;
+
+    function showHoloTranscript(text) {
+        holoTranscript.textContent = text;
+        holoTranscript.classList.add('visible');
+        clearTimeout(holoTranscript._t);
+        holoTranscript._t = setTimeout(() => holoTranscript.classList.remove('visible'), 3500);
+    }
+
+    function setHoloMicState(s) {
+        if (s === 'listening') {
+            holoMicDot.className = 'listening'; holoMicLabel.textContent = 'LISTENING...';
+            holoMicBtn.style.background = 'rgba(0,242,255,0.3)'; holoMicBtn.style.boxShadow = '0 0 20px rgba(0,242,255,0.5)';
+        } else if (s === 'processing') {
+            holoMicDot.className = 'active'; holoMicLabel.textContent = 'PROCESSING...';
+        } else {
+            holoMicDot.className = ''; holoMicLabel.textContent = 'TAP TO SPEAK';
+            holoMicBtn.style.background = 'rgba(0,242,255,0.15)'; holoMicBtn.style.boxShadow = 'none';
+        }
+    }
+
+    holoRecognition.onstart  = () => { holoListening = true; setHoloMicState('listening'); };
+    holoRecognition.onresult = (e) => {
+        const t = e.results[0][0].transcript;
+        content.textContent = t; showHoloTranscript('"' + t + '"');
+        setHoloMicState('processing'); holoListening = false;
+        takeCommand(t);
+    };
+    holoRecognition.onerror = (e) => {
+        holoListening = false; setHoloMicState('idle');
+        if (e.error === 'aborted') return;
+        if (holoActive && holoAutoRestart && e.error !== 'not-allowed') scheduleHoloMic(1500);
+    };
+    holoRecognition.onend = () => {
+        holoListening = false; setHoloMicState('idle');
+        if (holoActive && holoAutoRestart && !isSpeaking) scheduleHoloMic();
+    };
+
+    function scheduleHoloMic(delay = 800) {
+        if (!holoActive || !holoAutoRestart || holoListening || holoScheduled || isSpeaking) return;
+        holoScheduled = true;
+        setTimeout(() => {
+            holoScheduled = false;
+            if (holoActive && holoAutoRestart && !holoListening && !isSpeaking) {
+                try { holoRecognition.start(); } catch(e) {}
+            }
+        }, delay);
+    }
+
+    holoMicBtn.addEventListener('click', () => {
+        if (!holoListening && !isSpeaking) { try { holoRecognition.start(); } catch(e) {} }
+    });
+
+   
+    const holoOverlay   = document.getElementById('holo-overlay');
+    const videoElement  = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx     = canvasElement.getContext('2d');
+    const loadingScreen = document.getElementById('loading-screen');
+    const handDot       = document.getElementById('hand-dot');
+    const handLabel     = document.getElementById('hand-label');
+
+    let drawings = [], particles = [], currentPath = null;
+    let selectedDrawing = null, isDragging = false, lastFingerPos = {x:0, y:0};
+    let holoCamera = null, handsModel = null;
+    let frameCount = 0, handDetected = false;
+
+    function setupCanvas() {
+        canvasElement.width  = window.innerWidth;
+        canvasElement.height = window.innerHeight;
+    }
+    window.addEventListener('resize', setupCanvas);
+    setupCanvas();
+
+    class Spark {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            const a = Math.random() * Math.PI * 2;
+            const f = Math.random() * 14 + 8;
+            this.vx = Math.cos(a) * f; this.vy = Math.sin(a) * f;
+            this.life = 1.0; this.decay = Math.random() * 0.04 + 0.02;
+            this.gravity = 0.4; this.friction = 0.96;
+        }
+        update() {
+            this.vx *= this.friction; this.vy *= this.friction;
+            this.vy += this.gravity; this.x += this.vx; this.y += this.vy;
+            this.life -= this.decay;
+        }
+        draw(ctx) {
+            if (this.life <= 0) return;
+            let r, g, b;
+            if (this.life > 0.8)      { r=255; g=255; b=200; }
+            else if (this.life > 0.4) { r=255; g=180; b=40; }
+            else                      { r=200; g=50;  b=0; }
+            ctx.save();
+            ctx.globalAlpha = this.life;
+            ctx.strokeStyle = `rgb(${r},${g},${b})`;
+            ctx.lineWidth = 1.5 * this.life;
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 8 * this.life;
+            ctx.shadowColor = `rgb(${r},${g},${b})`;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x - this.vx * 0.8, this.y - this.vy * 0.8);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+  
+    function normToCanvas(lm) {
+        return { x: lm.x * canvasElement.width, y: lm.y * canvasElement.height };
+    }
+
+    function getLandmarkDist(lmA, lmB) {
+        const dx = (lmA.x - lmB.x) * canvasElement.width;
+        const dy = (lmA.y - lmB.y) * canvasElement.height;
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    function isIndexOnlyUp(lm) {
+        const indexUp = lm[8].y < lm[6].y;
+        const middleDown = lm[12].y >= lm[10].y;
+        const ringDown   = lm[16].y >= lm[14].y;
+        const pinkyDown  = lm[20].y >= lm[18].y;
+        return indexUp && middleDown && ringDown && pinkyDown;
+    }
+
+  
+    function isPinching(lm) {
+        return getLandmarkDist(lm[4], lm[8]) < 50;
+    }
+
+    function findDrawingAt(x, y) {
+        for (let i = drawings.length - 1; i >= 0; i--) {
+            for (let p of drawings[i].points) {
+                if (Math.hypot(x - p.x, y - p.y) < 80) return drawings[i];
+            }
+        }
+        return null;
+    }
+
+    function drawStoredPaths() {
+        canvasCtx.save();
+        canvasCtx.lineCap = 'round'; canvasCtx.lineJoin = 'round';
+        drawings.forEach(d => {
+            if (d.points.length < 2) return;
+            const sel = selectedDrawing && selectedDrawing.id === d.id;
+            // Outer glow
+            canvasCtx.shadowBlur = sel ? 30 : 18;
+            canvasCtx.shadowColor = sel ? '#ffff00' : '#ff2020';
+            canvasCtx.strokeStyle = sel ? '#ffff00' : '#ff2020';
+            canvasCtx.lineWidth   = sel ? 8 : 5;
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(d.points[0].x, d.points[0].y);
+            d.points.forEach(p => canvasCtx.lineTo(p.x, p.y));
+            canvasCtx.stroke();
+            // Inner bright core
+            canvasCtx.shadowBlur  = 0;
+            canvasCtx.strokeStyle = sel ? '#fffde7' : '#ffffff';
+            canvasCtx.lineWidth   = sel ? 3 : 2;
+            canvasCtx.stroke();
+        });
+        canvasCtx.restore();
+    }
+
+    function drawNeonSkeleton(lm) {
+        const connections = [
+            [0,1],[1,2],[2,3],[3,4],
+            [0,5],[5,6],[6,7],[7,8],
+            [5,9],[9,10],[10,11],[11,12],
+            [9,13],[13,14],[14,15],[15,16],
+            [13,17],[17,18],[18,19],[19,20],[0,17]
+        ];
+        canvasCtx.save();
+        canvasCtx.strokeStyle = '#00f2ff';
+        canvasCtx.lineWidth = 2.5;
+        canvasCtx.shadowBlur = 12;
+        canvasCtx.shadowColor = '#00f2ff';
+        connections.forEach(([a, b]) => {
+            const pa = normToCanvas(lm[a]), pb = normToCanvas(lm[b]);
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(pa.x, pa.y);
+            canvasCtx.lineTo(pb.x, pb.y);
+            canvasCtx.stroke();
+        });
+        canvasCtx.fillStyle = '#00f2ff';
+        lm.forEach(p => {
+            const c = normToCanvas(p);
+            canvasCtx.beginPath();
+            canvasCtx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+            canvasCtx.fill();
+        });
+    
+        [4, 8, 12, 16, 20].forEach(idx => {
+            const c = normToCanvas(lm[idx]);
+            canvasCtx.beginPath();
+            canvasCtx.arc(c.x, c.y, 7, 0, Math.PI * 2);
+            canvasCtx.fillStyle = 'rgba(0,242,255,0.4)';
+            canvasCtx.fill();
+        });
+        canvasCtx.restore();
+    }
+
+    function onResults(results) {
+        
+        if (loadingScreen.style.display !== 'none') {
+            loadingScreen.style.display = 'none';
+        }
+
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        drawStoredPaths();
+
+       
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].draw(canvasCtx);
+            if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            handDetected = true;
+            handDot.className = 'detected';
+            handLabel.textContent = 'HAND DETECTED';
+
+            const lm = results.multiHandLandmarks[0];
+            const indexTip  = normToCanvas(lm[8]);
+            const thumbTip  = normToCanvas(lm[4]);
+
+            if (isIndexOnlyUp(lm)) {
+                
+                handLabel.textContent = '✏️ DRAWING';
+                if (!currentPath) {
+                    currentPath = { points: [], id: Date.now() };
+                    drawings.push(currentPath);
+                }
+                currentPath.points.push({ x: indexTip.x, y: indexTip.y });
+                
+                if (Math.random() < 0.7) {
+                    for (let i = 0; i < 3; i++) particles.push(new Spark(indexTip.x, indexTip.y));
+                }
+                isDragging = false; selectedDrawing = null;
+
+            } else if (isPinching(lm)) {
+               
+                handLabel.textContent = '🤏 PINCH';
+                const midX = (indexTip.x + thumbTip.x) / 2;
+                const midY = (indexTip.y + thumbTip.y) / 2;
+                if (!isDragging) {
+                    selectedDrawing = findDrawingAt(midX, midY);
+                    if (selectedDrawing) { isDragging = true; lastFingerPos = {x: midX, y: midY}; }
+                }
+                if (isDragging && selectedDrawing) {
+                    const dx = midX - lastFingerPos.x, dy = midY - lastFingerPos.y;
+                    selectedDrawing.points.forEach(p => { p.x += dx; p.y += dy; });
+                    lastFingerPos = {x: midX, y: midY};
+                }
+                currentPath = null;
+
+            } else {
+                
+                handLabel.textContent = 'HAND DETECTED';
+                currentPath = null; isDragging = false; selectedDrawing = null;
+            }
+
+            drawNeonSkeleton(lm);
+
+        } else {
+            handDetected = false;
+            handDot.className = '';
+            handLabel.textContent = 'NO HAND';
+            currentPath = null; isDragging = false; selectedDrawing = null;
+        }
+    }
+
+    function initHandTracking() {
+        handsModel = new Hands({
+            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`
+        });
+
+        handsModel.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,   
+            minTrackingConfidence: 0.6     
+        });
+
+        handsModel.onResults(onResults);
+
+        holoCamera = new Camera(videoElement, {
+            onFrame: async () => {
+                if (handsModel) {
+                    await handsModel.send({ image: videoElement });
+                }
+            },
+            width: 1280, height: 720
+        });
+    }
+
+    function openHolo() {
+        holoOverlay.classList.add('active');
+        holoActive = true;
+        drawings = []; particles = []; currentPath = null;
+        holoMicBtn.style.display = 'block';
+
+        loadingScreen.style.display = 'flex';
+
+        if (!handsModel) {
+            initHandTracking();
+        }
+
+        holoCamera.start().then(() => {
+            console.log("Camera started ✓");
+        }).catch(err => {
+            console.error("Camera error:", err);
+            loadingScreen.style.display = 'none';
+            speak("Camera permission denied, Sir.");
+        });
+
+        holoAutoRestart = true;
+        setTimeout(() => { if (holoActive) scheduleHoloMic(); }, 1500);
+    }
+
+    function closeHolo() {
+        holoActive = false;
+        holoAutoRestart = false; holoScheduled = false; holoListening = false;
+        try { holoRecognition.stop(); } catch(e) {}
+        try { holoRecognition.abort(); } catch(e) {}
+        setHoloMicState('idle');
+        holoOverlay.classList.remove('active');
+        holoMicBtn.style.display = 'none';
+        if (holoCamera) holoCamera.stop();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        handDot.className = ''; handLabel.textContent = 'NO HAND';
+    }
+
+   
+    const ipcamCanvas = document.getElementById('ipcam-canvas');
+    const ipcamCtx    = ipcamCanvas.getContext('2d');
+    const ipcamPanel  = document.getElementById('ipcam-panel');
+    const ipcamBadge  = document.getElementById('ipcam-badge');
+    const ipcamDot    = document.getElementById('ipcam-dot');
+    const ipcamLabel  = document.getElementById('ipcam-label');
+    const ipcamFps    = document.getElementById('ipcam-fps');
+
+    let ipcamInterval = null, ipcamActive = false;
+    let fpsTracker = { last: 0, count: 0 };
+
+    function startIPCamLoop() {
+        if (ipcamInterval) clearInterval(ipcamInterval);
+        function grabFrame() {
+            if (!ipcamActive) return;
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                ipcamCanvas.width  = img.naturalWidth  || 280;
+                ipcamCanvas.height = img.naturalHeight || 158;
+                ipcamCtx.drawImage(img, 0, 0, ipcamCanvas.width, ipcamCanvas.height);
+                const now = performance.now();
+                fpsTracker.count++;
+                if (now - fpsTracker.last >= 1000) {
+                    ipcamFps.textContent = `FPS: ${fpsTracker.count}`;
+                    fpsTracker.count = 0; fpsTracker.last = now;
+                }
+                ipcamDot.className = ''; ipcamLabel.textContent = 'IP CAM LIVE';
+            };
+            img.onerror = () => {
+                ipcamDot.className = 'error'; ipcamLabel.textContent = 'NO SIGNAL';
+                ipcamFps.textContent = 'FPS: --';
+                ipcamCtx.fillStyle = '#0a0a0a';
+                ipcamCtx.fillRect(0, 0, 280, 158);
+                ipcamCtx.fillStyle = '#ff4444';
+                ipcamCtx.font = '11px Roboto Mono';
+                ipcamCtx.textAlign = 'center';
+                ipcamCtx.fillText('NO SIGNAL', 140, 75);
+            };
+            img.src = `${IPCAM_BASE}/shot.jpg?t=${Date.now()}`;
+        }
+        grabFrame();
+        ipcamInterval = setInterval(grabFrame, 100);
+    }
+
+    function openIPCam() {
+        if (ipcamActive) return;
+        ipcamActive = true;
+        ipcamPanel.classList.add('visible');
+        ipcamBadge.classList.add('visible');
+        ipcamCanvas.width = 280; ipcamCanvas.height = 158;
+        fpsTracker = { last: performance.now(), count: 0 };
+        startIPCamLoop();
+        speak("Opening IP camera feed, Sir.");
+    }
+
+    function closeIPCam() {
+        ipcamActive = false;
+        if (ipcamInterval) { clearInterval(ipcamInterval); ipcamInterval = null; }
+        ipcamPanel.classList.remove('visible');
+        ipcamBadge.classList.remove('visible');
+        ipcamCtx.clearRect(0, 0, ipcamCanvas.width, ipcamCanvas.height);
+    }
+
+    window.addEventListener('load', () => {
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        setTimeout(() => {
+            speak("Initializing JARVIS..");
+            const h = new Date().getHours();
+            if (h < 12)      speak("Good Morning Boss...");
+            else if (h < 17) speak("Good Afternoon Master...");
+            else             speak("Good Evening Sir...");
+        }, 500);
+        scheduleMainMic(2000);
+    });
+    </script>
+</body>
+</html>
+<!--Habibi ayush hoti-->
